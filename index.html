@@ -215,7 +215,7 @@
   .balance b{color:var(--ink);font-family:"IBM Plex Mono",monospace;font-weight:600}
 
   /* actions */
-  .actions{display:grid;grid-template-columns:1fr auto auto;gap:9px}
+  .actions{display:grid;grid-template-columns:1fr;gap:9px}
   .btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;font:600 .86rem/1 "IBM Plex Sans",sans-serif;padding:13px 14px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;gap:7px}
   .btn:hover{border-color:var(--line-strong)}
   .btn svg{width:16px;height:16px}
@@ -353,10 +353,6 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h11l3 3v13H5z" stroke-linejoin="round"/><path d="M8 4v5h7M8 20v-6h8v6" stroke-linejoin="round"/></svg>
         <span data-t="saveMonth"></span>
       </button>
-      <button class="btn ghost" onclick="document.getElementById('histPanel').open=true;document.getElementById('histPanel').scrollIntoView({behavior:'smooth'})">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2" stroke-linecap="round"/></svg>
-        <span data-t="historyBtn"></span>
-      </button>
     </div>
 
     <details class="panel" id="histPanel">
@@ -458,7 +454,8 @@ function seed(){
   return {
     lang:"it",
     langChosen:false,
-    theme:"",
+    theme:"light",
+    themeChosen:false,
     people:[
       {id:"mhamed", name:"Mhamed", fixed:true, prima:"0"}
     ],
@@ -715,6 +712,7 @@ function toggleTheme(){
   const cur = document.documentElement.getAttribute("data-theme");
   const isDark = cur==="dark" || (!cur && window.matchMedia("(prefers-color-scheme: dark)").matches);
   state.theme = isDark ? "light" : "dark";
+  state.themeChosen = true;
   applyTheme(); save();
 }
 
@@ -736,6 +734,7 @@ function renderAll(){ applyStaticText(); renderPeople(); renderHistory(); }
 function init(){
   state = load();
   if(!state.langChosen) state.lang = "it";
+  if(!state.themeChosen) state.theme = "light";   // default to light until the user picks a theme
   lang = state.lang || "it";
   applyTheme();
   renderAll();
