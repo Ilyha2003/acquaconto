@@ -295,13 +295,13 @@
           <label data-t="billLabel"></label>
           <div class="input-affix">
             <span class="aff">€</span>
-            <input id="bill" inputmode="decimal" placeholder="0,00" oninput="onBill(this)">
+            <input id="bill" inputmode="decimal" placeholder="0,00" oninput="onBill(this)" onfocus="clearZero(this)">
           </div>
         </div>
         <div class="field">
           <label data-t="estLabel"></label>
           <div class="input-affix">
-            <input id="est" inputmode="decimal" placeholder="0" oninput="onEst(this)" style="text-align:right;padding-left:10px">
+            <input id="est" inputmode="decimal" placeholder="0" oninput="onEst(this)" onfocus="clearZero(this)" style="text-align:right;padding-left:10px">
             <span class="aff right">m³</span>
           </div>
         </div>
@@ -528,8 +528,12 @@ function renderPeople(){
         <button class="send" data-role="send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 12l16-7-7 16-2-6-7-3Z" stroke-linejoin="round"/></svg>${T[lang].send}</button>
       </div>`;
     card.querySelector('[data-field="name"]').addEventListener("input", e=>{ p.name=e.target.value; save(); });
-    card.querySelector('[data-field="prima"]').addEventListener("input", e=>{ p.prima=e.target.value; recompute(); save(); });
-    card.querySelector('[data-field="adesso"]').addEventListener("input", e=>{ state.draft.readings[p.id]=e.target.value; recompute(); save(); });
+    const primaEl = card.querySelector('[data-field="prima"]');
+    primaEl.addEventListener("input", e=>{ p.prima=e.target.value; recompute(); save(); });
+    primaEl.addEventListener("focus", ()=>clearZero(primaEl));
+    const adessoEl = card.querySelector('[data-field="adesso"]');
+    adessoEl.addEventListener("input", e=>{ state.draft.readings[p.id]=e.target.value; recompute(); save(); });
+    adessoEl.addEventListener("focus", ()=>clearZero(adessoEl));
     const del = card.querySelector(".del");
     if(del) del.addEventListener("click", ()=>removePerson(p.id));
     card.querySelector('[data-role="send"]').addEventListener("click", ()=>sendTo(p.id));
@@ -709,6 +713,7 @@ function toast(msg){
 /* ---------- input handlers ---------- */
 function onBill(el){ state.draft.bill = el.value.replace(",","."); recompute(); save(); }
 function onEst(el){ state.draft.estimated = el.value; recompute(); save(); }
+function clearZero(el){ const n = parseFloat(String(el.value).replace(",",".")); if(!isNaN(n) && n===0) el.value=""; }
 
 /* ---------- boot ---------- */
 function renderAll(){ applyStaticText(); renderPeople(); renderHistory(); }
