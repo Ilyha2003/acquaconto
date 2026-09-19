@@ -282,10 +282,6 @@
       </div>
     </div>
     <div class="hdr-controls">
-      <div class="seg" role="group" aria-label="Language">
-        <button id="lang-en" onclick="setLang('en')">EN</button>
-        <button id="lang-it" onclick="setLang('it')">IT</button>
-      </div>
       <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" aria-label="Theme">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" stroke-linejoin="round"/></svg>
       </button>
@@ -503,8 +499,6 @@ function applyStaticText(){
     const val = T[lang][k];
     if(typeof val === "string") el.textContent = val;
   });
-  document.getElementById("lang-en").setAttribute("aria-pressed", lang==="en");
-  document.getElementById("lang-it").setAttribute("aria-pressed", lang==="it");
   document.getElementById("bill").value = state.draft.bill ? String(state.draft.bill).replace(".",",") : "";
   document.getElementById("est").value  = state.draft.estimated || "";
 }
@@ -720,9 +714,8 @@ function onEst(el){ state.draft.estimated = el.value; recompute(); save(); }
 function renderAll(){ applyStaticText(); renderPeople(); renderHistory(); }
 function init(){
   state = load();
-  if(!state.langChosen) state.lang = "it";
+  state.lang = "it"; lang = "it";                 // Italian only
   if(!state.themeChosen) state.theme = "light";   // default to light until the user picks a theme
-  lang = state.lang || "it";
   applyTheme();
   renderAll();
   try{

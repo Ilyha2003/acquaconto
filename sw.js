@@ -1,4 +1,4 @@
-const CACHE = "acquaconto-v7";
+const CACHE = "acquaconto-v8";
 const ASSETS = [
   "./",
   "./index.html",
