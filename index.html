@@ -134,6 +134,7 @@
   /* bill inputs */
   .bill{padding:14px}
   .bill-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .bill-grid.single{grid-template-columns:1fr}
   .field{display:flex;flex-direction:column;gap:5px}
   .field label{font-size:.7rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
   .input-affix{display:flex;align-items:center;border:1px solid var(--line);background:var(--surface-2);border-radius:var(--radius-sm);overflow:hidden}
@@ -201,6 +202,7 @@
   .basis .seg{position:relative;display:flex;width:100%;overflow:hidden}
   .basis .seg::before{content:"";position:absolute;top:2px;bottom:2px;left:2px;width:calc(50% - 2px);background:var(--accent);border-radius:999px;transition:transform .28s cubic-bezier(.4,0,.2,1);z-index:0}
   .basis .seg[data-active="saldo"]::before{transform:translateX(100%)}
+  .basis .seg.disabled{opacity:.45;pointer-events:none}
   .basis .seg button{position:relative;z-index:1;flex:1;text-align:center;padding:9px 12px;font-size:.8rem;background:transparent;transition:color .22s ease}
   .basis .seg button[aria-pressed="true"]{background:transparent;color:#fff}
   @media (prefers-reduced-motion:reduce){.basis .seg::before{transition:none}}
@@ -290,7 +292,13 @@
 
   <div class="stack">
     <div class="card bill">
-      <div class="bill-grid">
+      <div class="basis" style="margin-bottom:12px">
+        <div class="seg" id="typeSeg" data-active="estimato" role="group" aria-label="type">
+          <button id="type-estimato" onclick="setType('estimato')" data-t="typeEstimato"></button>
+          <button id="type-saldo" onclick="setType('saldo')" data-t="typeSaldo"></button>
+        </div>
+      </div>
+      <div class="bill-grid" id="billGrid">
         <div class="field">
           <label data-t="billLabel"></label>
           <div class="input-affix">
@@ -298,7 +306,7 @@
             <input id="bill" inputmode="decimal" placeholder="0,00" oninput="onBill(this)" onfocus="clearZero(this)">
           </div>
         </div>
-        <div class="field">
+        <div class="field" id="saldoField">
           <label id="consLabel"></label>
           <div class="input-affix">
             <input id="est" inputmode="decimal" placeholder="0" oninput="onEst(this)" onfocus="clearZero(this)" style="text-align:right;padding-left:10px">
@@ -322,9 +330,9 @@
 
     <div class="card results">
       <div class="basis">
-        <div class="seg" id="basisSeg" data-active="stimato" role="group" aria-label="basis">
-          <button id="basis-stimato" onclick="setBasis('stimato')" data-t="basisStimato"></button>
-          <button id="basis-saldo" onclick="setBasis('saldo')" data-t="basisSaldo"></button>
+        <div class="seg" id="basisSeg" data-active="stimato" role="group" aria-label="view">
+          <button id="basis-stimato" onclick="setView('stimato')" data-t="basisStimato"></button>
+          <button id="basis-saldo" onclick="setView('saldo')" data-t="basisSaldo"></button>
         </div>
       </div>
       <div class="tiles">
@@ -365,8 +373,11 @@ const T = {
     peopleLabel:"People",
     addPerson:"Add person",
     priceLabel:"Price / m³",
-    basisStimato:"Estimated",
-    basisSaldo:"Balance",
+    typeEstimato:"Estimato",
+    typeSaldo:"Saldo",
+    numeroLabel:"Number to enter",
+    basisStimato:"Stimato",
+    basisSaldo:"Saldo",
     saldoLabel:"Balance (m³)",
     collectedLabel:"Collected",
     refundLabel:"Your refund",
@@ -400,6 +411,9 @@ const T = {
     peopleLabel:"Persone",
     addPerson:"Aggiungi persona",
     priceLabel:"Prezzo / m³",
+    typeEstimato:"Estimato",
+    typeSaldo:"Saldo",
+    numeroLabel:"Numero da inserire",
     basisStimato:"Stimato",
     basisSaldo:"Saldo",
     saldoLabel:"Saldo (m³)",
@@ -444,7 +458,8 @@ function seed(){
     people:[
       {id:"mhamed", name:"Mhamed", fixed:true, prima:"0"}
     ],
-    basis:"stimato",
+    billType:"estimato",
+    view:"stimato",
     draft:{ bill:"", estimated:"", saldo:"", readings:{mhamed:""} },
     history:[]
   };
@@ -467,10 +482,10 @@ function num(n){ return Number.isInteger(n) ? n.toLocaleString(locale()) : n.toL
 function price(n){ return n.toLocaleString(locale(),{minimumFractionDigits:2,maximumFractionDigits:4}); }
 
 /* ---------- compute ---------- */
+function numeroValue(){ return (state.billType==="saldo" ? state.draft.saldo : state.draft.estimated) || ""; }
 function computeAll(){
   const bill = parseNum(state.draft.bill);
-  const basis = state.basis==="saldo" ? "saldo" : "stimato";
-  const cons = parseNum(basis==="saldo" ? state.draft.saldo : state.draft.estimated);   // active mode's number
+  const billType = state.billType==="saldo" ? "saldo" : "estimato";
   let real = 0;
   const base = state.people.map(p=>{
     const prima = parseNum(p.prima);
@@ -482,11 +497,23 @@ function computeAll(){
     real += eff;
     return {p, prima, adesso, absent, conso, warn, eff};
   });
-  // price per m³ = bill divided by the entered number (estimato or saldo); each pays their difference × price
-  const unit = cons>0 ? bill/cons : 0;
+  const numero = parseNum(numeroValue());
+  // active view: locked to 'saldo' when the bill itself is a saldo
+  const view = (billType==="saldo") ? "saldo" : (state.view==="saldo" ? "saldo" : "stimato");
+  // divisor for the currently viewed result
+  //  - estimato bill, Stimato view  -> ÷ the estimato number
+  //  - estimato bill, Saldo  view   -> ÷ the real (sum of meters)
+  //  - saldo   bill                 -> ÷ the saldo number
+  let divisor;
+  if(billType==="saldo") divisor = numero;
+  else divisor = (view==="saldo") ? real : numero;
+  const unit = divisor>0 ? bill/divisor : 0;
   const rows = base.map(r=>({...r, amount:r.eff*unit}));
   const collected = real*unit;
-  return {bill, cons, basis, unit, real, collected, rows};
+  // the "real" result that history keeps: estimato -> ÷ meters, saldo -> ÷ saldo number
+  const realDivisor = (billType==="saldo") ? numero : real;
+  const realUnit = realDivisor>0 ? bill/realDivisor : 0;
+  return {bill, billType, view, numero, real, divisor, unit, collected, rows, realDivisor, realUnit};
 }
 
 /* ---------- render ---------- */
@@ -497,7 +524,7 @@ function applyStaticText(){
     if(typeof val === "string") el.textContent = val;
   });
   document.getElementById("bill").value = state.draft.bill ? String(state.draft.bill).replace(".",",") : "";
-  document.getElementById("est").value  = consValue();
+  document.getElementById("est").value  = numeroValue();
   updateConsLabel();
 }
 
@@ -564,12 +591,19 @@ function recompute(){
     send.hidden = !(r.amount>0);
   });
   document.getElementById("rPrice").textContent    = c.unit>0 ? "€"+price(c.unit) : "—";
-  document.getElementById("rPriceSub").textContent = "÷ "+num(c.cons)+" m³";
+  document.getElementById("rPriceSub").textContent = "÷ "+num(c.divisor)+" m³";
   document.getElementById("rCollected").textContent= "€"+money(c.collected);
   document.getElementById("rRealSub").textContent  = num(c.real)+" m³";
-  document.getElementById("basis-stimato").setAttribute("aria-pressed", c.basis==="stimato");
-  document.getElementById("basis-saldo").setAttribute("aria-pressed", c.basis==="saldo");
-  document.getElementById("basisSeg").setAttribute("data-active", c.basis);
+  // top selector (bill type)
+  document.getElementById("type-estimato").setAttribute("aria-pressed", c.billType==="estimato");
+  document.getElementById("type-saldo").setAttribute("aria-pressed", c.billType==="saldo");
+  document.getElementById("typeSeg").setAttribute("data-active", c.billType==="saldo" ? "saldo" : "estimato");
+  // bottom switcher (result view) — disabled when the bill is a saldo
+  const typeSaldo = c.billType==="saldo";
+  document.getElementById("basisSeg").classList.toggle("disabled", typeSaldo);
+  document.getElementById("basisSeg").setAttribute("data-active", c.view);
+  document.getElementById("basis-stimato").setAttribute("aria-pressed", !typeSaldo && c.view==="stimato");
+  document.getElementById("basis-saldo").setAttribute("aria-pressed", c.view==="saldo");
 }
 
 function escapeAttr(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;"); }
@@ -610,10 +644,11 @@ function sendTo(id){
 function saveMonth(){
   const c = computeAll();
   if(!(c.bill>0)){ toast(T[lang].needBill); return; }
+  const ru = c.realUnit;               // history always keeps the "real" result
   const entry = {
-    id: uid(), savedAt: Date.now(), basis:c.basis,
-    bill:c.bill, cons:c.cons, unit:c.unit, real:c.real, collected:c.collected,
-    rows: c.rows.map(r=>({name:r.p.name, prima:r.prima, adesso:r.adesso, conso:r.conso, amount:r.amount, absent:r.absent}))
+    id: uid(), savedAt: Date.now(), billType:c.billType,
+    bill:c.bill, cons:c.realDivisor, unit:ru, real:c.real, collected:c.real*ru,
+    rows: c.rows.map(r=>({name:r.p.name, prima:r.prima, adesso:r.adesso, conso:r.conso, amount:r.eff*ru, absent:r.absent}))
   };
   state.history.unshift(entry);
   state.people.forEach(p=>{
@@ -644,7 +679,8 @@ function renderHistory(){
         <span class="calc">${calc}</span>
       </div>`;
     }).join("");
-    const modeLabel = (h.basis==="saldo") ? T[lang].basisSaldo : T[lang].basisStimato;
+    const billType = h.billType || (h.basis==="saldo" ? "saldo" : "estimato");
+    const typeLbl = (billType==="saldo") ? T[lang].typeSaldo : T[lang].typeEstimato;
     const consVal = (h.cons!=null) ? h.cons : h.est;
     return `<details class="hist-item">
       <summary>
@@ -653,9 +689,8 @@ function renderHistory(){
       </summary>
       <div class="hist-detail">
         <div class="hist-meta">
-          <span>${T[lang].billLabel}: <b>€${money(h.bill)}</b></span>
-          <span>${modeLabel}: <b>${num(consVal)} m³</b></span>
-          <span>${T[lang].priceLabel} <b>€${price(h.unit)}</b></span>
+          <span>${T[lang].billLabel}: <b>€${money(h.bill)}</b> · ${typeLbl}</span>
+          <span>${T[lang].priceLabel} <b>€${price(h.unit)}</b> (÷ ${num(consVal)} m³)</span>
           <span>${T[lang].collectedLabel}: <b>€${money(h.collected)}</b></span>
         </div>
         <div class="hist-rows">${rows}</div>
@@ -678,15 +713,20 @@ function setLang(l){
   w.style.opacity="0.3";
   setTimeout(()=>{ renderAll(); w.style.opacity="1"; }, 180);
 }
-function setBasis(b){
-  state.basis=b; save();
-  updateConsLabel();
-  const est=document.getElementById("est"); if(est) est.value = consValue();
+function setType(t){        // top selector: bill type (estimato / saldo)
+  state.billType = t;
+  if(t==="saldo") state.view = "saldo";   // only one result for a saldo bill
+  save();
+  const est=document.getElementById("est"); if(est) est.value = numeroValue();
   recompute();
+}
+function setView(v){        // bottom switcher: which result to view (only when bill is estimato)
+  if(state.billType==="saldo") return;   // locked
+  state.view = v; save(); recompute();
 }
 function updateConsLabel(){
   const el = document.getElementById("consLabel");
-  if(el) el.textContent = (state.basis==="saldo") ? T[lang].saldoLabel : T[lang].estLabel;
+  if(el) el.textContent = T[lang].numeroLabel;
 }
 function updateThemeColor(){
   const el = document.documentElement.getAttribute("data-theme");
@@ -719,8 +759,7 @@ function toast(msg){
 
 /* ---------- input handlers ---------- */
 function onBill(el){ state.draft.bill = el.value.replace(",","."); recompute(); save(); }
-function consValue(){ return (state.basis==="saldo" ? state.draft.saldo : state.draft.estimated) || ""; }
-function onEst(el){ if(state.basis==="saldo") state.draft.saldo = el.value; else state.draft.estimated = el.value; recompute(); save(); }
+function onEst(el){ if(state.billType==="saldo") state.draft.saldo = el.value; else state.draft.estimated = el.value; recompute(); save(); }
 function clearZero(el){ const n = parseFloat(String(el.value).replace(",",".")); if(!isNaN(n) && n===0) el.value=""; }
 
 /* ---------- boot ---------- */
@@ -728,7 +767,8 @@ function renderAll(){ applyStaticText(); renderPeople(); renderHistory(); }
 function init(){
   state = load();
   state.lang = "it"; lang = "it";                 // Italian only
-  if(state.basis!=="saldo") state.basis = "stimato";  // normalize old values
+  if(state.billType!=="saldo") state.billType = "estimato";
+  if(state.view!=="saldo") state.view = (state.basis==="saldo") ? "saldo" : "stimato";  // migrate old 'basis'
   if(!state.themeChosen) state.theme = "light";   // default to light until the user picks a theme
   applyTheme();
   renderAll();
