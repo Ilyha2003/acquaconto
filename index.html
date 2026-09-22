@@ -204,7 +204,7 @@
   .basis .seg button{position:relative;z-index:1;flex:1;text-align:center;padding:9px 12px;font-size:.8rem;background:transparent;transition:color .22s ease}
   .basis .seg button[aria-pressed="true"]{background:transparent;color:#fff}
   @media (prefers-reduced-motion:reduce){.basis .seg::before{transition:none}}
-  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+  .tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
   .tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 12px;display:flex;flex-direction:column;gap:5px}
   .tile .k{font-size:.64rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
   .tile .v{font:600 1.16rem/1 "IBM Plex Mono",monospace;color:var(--ink);font-variant-numeric:tabular-nums}
@@ -330,7 +330,6 @@
       <div class="tiles">
         <div class="tile"><span class="k" data-t="priceLabel"></span><span class="v" id="rPrice">—</span><span class="sub" id="rPriceSub"></span></div>
         <div class="tile"><span class="k" data-t="collectedLabel"></span><span class="v" id="rCollected">—</span><span class="sub" id="rRealSub"></span></div>
-        <div class="tile"><span class="k" data-t="refundLabel"></span><span class="v" id="rRefund">—</span></div>
       </div>
     </div>
 
@@ -386,7 +385,7 @@ const T = {
     usedWord:"used",
     savedToast:"Month saved",
     copiedToast:"Copied to clipboard",
-    needBill:"Enter a bill amount and estimated m³ first",
+    needBill:"Enter the bill amount first",
     deletedToast:"Removed",
     delMonthConfirm:"Delete this saved month?",
     deleteWord:"Delete month",
@@ -421,7 +420,7 @@ const T = {
     usedWord:"consumo",
     savedToast:"Mese salvato",
     copiedToast:"Copiato negli appunti",
-    needBill:"Inserisci prima importo e m³ stimati",
+    needBill:"Inserisci prima l'importo della bolletta",
     deletedToast:"Rimosso",
     delMonthConfirm:"Eliminare questo mese salvato?",
     deleteWord:"Elimina mese",
@@ -568,7 +567,6 @@ function recompute(){
   document.getElementById("rPrice").textContent    = c.unit>0 ? "€"+price(c.unit) : "—";
   document.getElementById("rPriceSub").textContent = "÷ "+num(c.basis==="estimated"?c.est:c.real)+" m³";
   document.getElementById("rCollected").textContent= "€"+money(c.collected);
-  document.getElementById("rRefund").textContent   = "€"+money(c.refund);
   document.getElementById("rRealSub").textContent  = num(c.real)+" m³";
   document.getElementById("basis-real").setAttribute("aria-pressed", c.basis==="real");
   document.getElementById("basis-est").setAttribute("aria-pressed", c.basis==="estimated");
@@ -612,7 +610,7 @@ function sendTo(id){
 /* ---------- save month ---------- */
 function saveMonth(){
   const c = computeAll();
-  if(!(c.bill>0) || !(c.est>0)){ toast(T[lang].needBill); return; }
+  if(!(c.bill>0)){ toast(T[lang].needBill); return; }
   const entry = {
     id: uid(), savedAt: Date.now(), basis:c.basis,
     bill:c.bill, est:c.est, unit:c.unit, real:c.real, collected:c.collected, refund:c.refund,
